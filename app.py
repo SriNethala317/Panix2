@@ -9,11 +9,14 @@ from song import *
 from os import environ as env
 from dotenv import find_dotenv, load_dotenv
 import json
+from urllib.parse import urlencode
+from urllib.parse import quote
+import multiprocessing
 from download_song import *
 from spotify_songs import *
 from db_song import *
-from urllib.parse import urlencode
-from urllib.parse import quote
+from change_streams import *
+
 
 ENV_FILE = find_dotenv()
 
@@ -34,6 +37,8 @@ redirect_url = 'http://localhost:5000/account'
 @app.route("/")
 def home():
     session.clear()
+    print('from /:', session.get('session_name'))
+    print('from /:', session.get('username'))
     return render_template("choose_host_or_user.html")
 
 @app.route("/create-session", methods=['GET', 'POST'])
@@ -84,6 +89,7 @@ def get_spotify_auth_url():
     print('spotify authenticate user ' , session['username'] , ' to ' , session['session_name'])
     if 'access_token' in session:
         session['access_token'] = None
+    print('/get-spotify-auth-url session name: ', session['session_name'], ' username: ', session['username'])
     data = "https://accounts.spotify.com/authorize?client_id=" + env.get("CLIENT_ID") + "&response_type=code&redirect_uri=" + quote(redirect_url, safe='') +  "&scope=user-read-playback-state+user-modify-playback-state"
     return json.dumps(data)
 
@@ -96,18 +102,21 @@ def get_spotify_auth_code():
 
     if 'session_name' in session:
         print('account session name ' , session['session_name'])
+        args = request.args
+        if 'code' in args and args['code'] != None:
+            print(args['code'])
+            #request token
+            print('session name from /account ', session['session_name'])
+            session['spotify_auth_code'] = args['code']
+            print('auth code: ', args['code'])
+            data= {'session_name': session.get('session_name'), 'username':session.get('username')}
+            print(session['session_name'])
+            return render_template('/account.html', data=data)
+        else: 
+            print("There was no code in args")
     else:
         print('account session name none')
     
-    args = request.args
-    if 'code' in args and args['code'] != None:
-        print(args['code'])
-        #request token
-        session['spotify_auth_code'] = args['code']
-        data= {'session_name': session['session_name']}
-        return render_template('/account.html', data=data)
-    else: 
-        print("There was no code in args")
 
     # elif 'access_token' in args and args['access_token'] != None:
     #     print('workinge')
@@ -129,28 +138,77 @@ def add_spotify_songs_to_queue():
         num_of_songs = 1
     if songs != 'Error: no songs selected':
         db_append_songs(session.get('username'), session.get('session_name'), songs[0:num_of_songs])
-    return jsonify(json.dumps(songs[0:num_of_songs])) 
+        return jsonify(json.dumps(songs[0:num_of_songs]))
+    else:
+        return jsonify('Error: no songs selected') 
 
+@app.route("/get-session-name")
+def send_session_name():
+    return jsonify(session.get("session_name"))
+
+@app.route("/get-username")
+def send_username():
+    return jsonify(session.get("username"))
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
 @socketio.on('join')
 def on_join(data):
     username = data['username']
-    room = data['sessionName']
+    room = data['session_name']
     join_room(room)
-    socketio.send(username + ' has joined session', to=room)
 
+    socketio.emit('logs', username + ' has joined session', to=room)
+    socketio.emit('update', 'update socket is also working', to=room)
+    
 @socketio.on('leave')
 def on_leave(data):
     username = data['username']
-    room = data['sessionName']
+    room = data['session_name']
     leave_room(room)
-    socketio.send(username + ' has left session', to=room)
+    socketio.emit('logs', username + ' has left session', to=room)
+    
 
 def update_realtime_playlist(sessionName, playlist):
-    realtime_playlist = json.dumps(playlist)
-    socketio.emit('update', realtime_playlist, to=sessionName)
+    print('update_realtime_playlist executed: ', sessionName, ' playlist: ', playlist)
+    # realtime_playlist = json.dumps(playlist)
+    with app.app_context():
+        socketio.emit('update', playlist, to=sessionName)
+
+def handle_queue(queue):
+    prev = None
+    while True:
+        session_name, playlist = queue.get()
+        if not prev:
+            prev = tuple((session_name, playlist))
+        elif tuple((session_name, playlist)) == prev:
+            continue
+        else:
+            prev = tuple((session_name, playlist))
+            
+        if session_name and playlist:
+            print(' going to execute update_realtime_playlist')
+            update_realtime_playlist(session_name, playlist)
 
 
 if __name__ == '__main__':
+
+    change_streams_queue = multiprocessing.Queue()
+    
+    change_streams_process = multiprocessing.Process(target=start_change_streams, args=(change_streams_queue, ))
+    change_streams_process.start()
+
+    queue_handler_process = multiprocessing.Process(target=handle_queue, args=(change_streams_queue, ))
+    queue_handler_process.start()
+
     socketio.run(app, debug=True)
+
+    change_streams_process.join()
+    queue_handler_process.join()
+
+    
+    
+    
     

@@ -31,4 +31,4 @@ spotify_btn.addEventListener('click', () =>{
         window.open(data, "_self")
 
     })
-})
+});
