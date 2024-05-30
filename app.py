@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, redirect, render_template, session, url_for, request, send_from_directory, jsonify
 from flask_socketio import SocketIO, join_room, leave_room
 from pymongo import MongoClient
@@ -11,11 +12,12 @@ from dotenv import find_dotenv, load_dotenv
 import json
 from urllib.parse import urlencode
 from urllib.parse import quote
-import multiprocessing
 from download_song import *
 from spotify_songs import *
 from db_song import *
 from change_streams import *
+import threading
+import queue
 
 
 ENV_FILE = find_dotenv()
@@ -28,7 +30,9 @@ app.secret_key = env.get("APP_SECRET_KEY")
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='threading', logger=True, engineio_logger=True)
+
+logging.basicConfig(level=logging.DEBUG)
 
 redirect_url = 'http://localhost:5000/account'
 # song1 = Song('Leo Ordinary Person')
@@ -157,25 +161,25 @@ def handle_connect():
 @socketio.on('join')
 def on_join(data):
     username = data['username']
-    room = data['session_name']
+    room = str(data['session_name'])
     join_room(room)
-
     socketio.emit('logs', username + ' has joined session', to=room)
-    socketio.emit('update', 'update socket is also working', to=room)
-    
+
 @socketio.on('leave')
 def on_leave(data):
     username = data['username']
     room = data['session_name']
     leave_room(room)
     socketio.emit('logs', username + ' has left session', to=room)
-    
 
+
+# try namespaces    
+# try redis/kafka
 def update_realtime_playlist(sessionName, playlist):
-    print('update_realtime_playlist executed: ', sessionName, ' playlist: ', playlist)
+    print('update_realtime_playlist executed: ', sessionName)
     # realtime_playlist = json.dumps(playlist)
-    with app.app_context():
-        socketio.emit('update', playlist, to=sessionName)
+    socketio.emit('update', playlist, to=sessionName)
+    print('should emit update ', type(playlist))
 
 def handle_queue(queue):
     prev = None
@@ -195,18 +199,20 @@ def handle_queue(queue):
 
 if __name__ == '__main__':
 
-    change_streams_queue = multiprocessing.Queue()
-    
-    change_streams_process = multiprocessing.Process(target=start_change_streams, args=(change_streams_queue, ))
-    change_streams_process.start()
+    change_streams_queue = queue.Queue()
 
-    queue_handler_process = multiprocessing.Process(target=handle_queue, args=(change_streams_queue, ))
-    queue_handler_process.start()
+    change_streams_thread = threading.Thread(target=start_change_streams, args=(change_streams_queue, ))
+    change_streams_thread.start()
+
+    queue_handler_thread = threading.Thread(target=handle_queue, args=(change_streams_queue, ))
+    queue_handler_thread.start()
+
 
     socketio.run(app, debug=True)
 
-    change_streams_process.join()
-    queue_handler_process.join()
+    change_streams_thread.join()
+    queue_handler_thread.join()
+
 
     
     

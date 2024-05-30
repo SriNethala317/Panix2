@@ -1,5 +1,7 @@
 // import { io } from "../../socket.io/socket.io.js";
 
+localStorage.debug= '*';
+
 const socket = io(); // sends socket "connect" msg to server
 let sessionName;
 console.log('io protocol: ', io.protocol);
@@ -24,7 +26,7 @@ fetch('/get-session-name', {
     })
 
     socket.on('update', (data)=>{
-        console.log('socketio update data: ', data);
+        console.log('socketio update data: ' + data);
     })
 
 }).catch(error =>{

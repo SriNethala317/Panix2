@@ -4,8 +4,7 @@ from pymongo import MongoClient
 import pymongo
 from bson.json_util import dumps
 import sys
-from app import update_realtime_playlist
-from multiprocessing import Queue
+import queue
 
 ENV_FILE = find_dotenv()
 
