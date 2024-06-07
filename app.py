@@ -48,7 +48,7 @@ def home():
 @app.route("/create-session", methods=['GET', 'POST'])
 def generate_session():
     name = request.get_json()['session_name_input']
-    session_name = create_session(name)
+    session_name = create_session(name, request.get_json()['audio_type'])
     # print("Session Name is: ", session_name)
     session['session_name'] = session_name #flask session is storing panix session name
     return json.dumps(session_name)
@@ -142,6 +142,8 @@ def add_spotify_songs_to_queue():
         num_of_songs = 1
     if songs != 'Error: no songs selected':
         db_append_songs(session.get('username'), session.get('session_name'), songs[0:num_of_songs])
+        download_thread = threading.Thread(download_songs, args=(songs[0:num_of_songs]))
+        download_thread.start()
         return jsonify(json.dumps(songs[0:num_of_songs]))
     else:
         return jsonify('Error: no songs selected') 
@@ -178,7 +180,7 @@ def on_leave(data):
 def update_realtime_playlist(sessionName, playlist):
     print('update_realtime_playlist executed: ', sessionName)
     # realtime_playlist = json.dumps(playlist)
-    socketio.emit('update', playlist, to=sessionName)
+    socketio.emit('update', json.dumps(playlist), to=sessionName)
     print('should emit update ', type(playlist))
 
 def handle_queue(queue):
@@ -212,9 +214,3 @@ if __name__ == '__main__':
 
     change_streams_thread.join()
     queue_handler_thread.join()
-
-
-    
-    
-    
-    
