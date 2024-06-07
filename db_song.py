@@ -22,7 +22,7 @@ sessionsDB = db['Sessions']
 # returns session name
 def create_session(session_name='', audio_type='ogg'):
     if session_name != None and sessionsDB.find_one({'sessionName': str(session_name)}) is None:
-        sessionsDB.insert_one({'sessionName': session_name, 'songNo': 0.0, 'audioType': str(audio_type)})
+        sessionsDB.insert_one({'sessionName': session_name, 'songNo': 0.0, 'audio_type': str(audio_type)})
     else:
         session_name = random.randrange(10000, 99999)
         while sessionsDB.find_one({'session_name': str(session_name)}) != None:
@@ -59,7 +59,7 @@ def delete_session(session_name):
     print(session_info.deleted_count, ' session info deleted')
 
 def get_audio_type(session_name):
-    query_result = sessionsDB.find_one({'sessionName': str(session_name)}, {"audio_type": 1}) 
+    query_result = sessionsDB.find_one({'sessionName': str(session_name)}, {"_id": 0 ,"audio_type": 1}).get("audio_type") 
     return query_result
 
 

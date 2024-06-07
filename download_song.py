@@ -5,6 +5,7 @@ import urllib.request
 import urllib.parse
 import shutil
 from multiprocessing.pool import ThreadPool
+from moviepy.editor import *
 
 
 SONGSFOLDER = "song_downloads"
@@ -26,28 +27,36 @@ def get_url(song_name, artist):
 def download_audio_from_yt(url, song, audio_type, filename):
     yt = YouTube(url)
     song['length'] = yt.length;
-    video = yt.streams.filter(only_audio=True, file_extension=audio_type).first()
+    video = yt.streams.filter(only_audio=True, file_extension='mp4').first()
     path = os.path.join(os.getcwd(), SONGSFOLDER, '')
     print(path)
-    audio_file = video.download(output_path= '.')
-    song['filename'] = filename
-    os.rename(audio_file, path + filename)
+    # download video from youtube
+    audio_file = video.download(output_path= path , filename=filename + '.mp4')
+
+    # Load the mp4 file
+    video = AudioFileClip(os.path.join(path, filename + '.mp4'))
+
+    # Convert from mp4 to mp3 or ogg 
+    video.write_audiofile(os.path.join(path, filename + '.'+ audio_type), logger=None)
+
+    # remove mp4 file
+    os.remove(os.path.join(path, filename + '.mp4'))
+    
 
 def download_song(song, audio_type='ogg'):
-    try:
+    # try:
         artist = song.get('artist_name')
         if artist:
             artist = '_by_' + artist
         possible_file = song.get('song_name').replace(" ", "_") + artist.replace(" ", "_") +'.' + audio_type
         if os.path.exists(os.path.join(os.getcwd(), SONGSFOLDER, possible_file)): #if file already exists then return
             return
-        
         url = get_url(song.get('song_name'), song.get('artist_name'))
-        download_audio_from_yt(url, song, audio_type, possible_file)
-        print('File name is: ' + song.get('filename'))
+        print('url: ', url)
+        download_audio_from_yt(url, song, audio_type, possible_file[:-4])
         print('Song name is: ' + song.get('song_name'))
-    except Exception as e:
-        print(f"Failed to download {song.get('song_name')}: {e}")
+    # except Exception as e:
+    #     print(f"Failed to download {song.get('song_name')}: {e}")
 
 def download_songs(songs, audio_type):
     pool = ThreadPool(10)
@@ -56,3 +65,4 @@ def download_songs(songs, audio_type):
     
     pool.close()
     pool.join()
+        

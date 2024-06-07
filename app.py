@@ -141,8 +141,10 @@ def add_spotify_songs_to_queue():
     if num_of_songs is None:
         num_of_songs = 1
     if songs != 'Error: no songs selected':
+        print('add spotify songs to download: ', songs[0:num_of_songs])
         db_append_songs(session.get('username'), session.get('session_name'), songs[0:num_of_songs])
-        download_thread = threading.Thread(download_songs, args=(songs[0:num_of_songs]))
+        print('audio type songs to download', get_audio_type(session.get('session_name')))
+        download_thread = threading.Thread(target=download_songs, args=(list(songs[0:num_of_songs]), get_audio_type(session.get('session_name'))))
         download_thread.start()
         return jsonify(json.dumps(songs[0:num_of_songs]))
     else:
