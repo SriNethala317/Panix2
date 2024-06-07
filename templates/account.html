@@ -14,7 +14,7 @@
         <link rel="stylesheet" href="../static/styles/account.css"
     </head>
     <body>
-        <h1>signed in to {{data.session_name}}</h1>
+        <h1>signed in to {{data.session_name}} as {{data.username}}</h1>
         <h2>Instructions:</h2>
         <h3>
             Go into spotify and queue up songs that you want to be played
@@ -36,6 +36,6 @@
         <div class="overlay"></div>
         <h2 class="list-of-songs"></h2>
         <div class="songs-list"></div>
-        <script src="../static/scripts/account.js" async defer></script>
+        <script src="../static/scripts/account.js" defer></script>
     </body>
 </html>

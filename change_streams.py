@@ -4,7 +4,7 @@ from pymongo import MongoClient
 import pymongo
 from bson.json_util import dumps
 import sys
-from app import update_realtime_playlist
+import queue
 
 ENV_FILE = find_dotenv()
 
@@ -16,25 +16,22 @@ client = MongoClient(cluster)
 db = client['PanixDB']
 songsDB = db['Songs']
 
-try:
+def start_change_streams(queue):
     resume_token = None
     pipeline = [{'$match': {'operationType': {'$in':['insert', 'update']}}}]
-    with songsDB.watch(pipeline) as changeStream:
-        for change in changeStream:
-            # print(dumps(change))
-            # print("document key is: " , change['documentKey'])
-            # print("Session Name is ", songsDB.find_one(change['documentKey'])['sessionName'])
-            sessionName = songsDB.find_one(change['documentKey'])['sessionName']
-            songs = songsDB.find({'sessionName': sessionName}).sort('orderNo', 1)
-            
-            update_realtime_playlist(sessionName, songs)
-            resume_token = changeStream.resume_token
-except pymongo.errors.PyMongoError:
-    if resume_token is None:
-        sys.exit(1)
-    else:
-        with songsDB.watch(pipeline, resume_after=resume_token) as changeStream:
-            for change in changeStream:
-                print(dumps(change))
-finally:
-    client.close()
+    while True:
+        try:
+            print('change stream loaded- waing for changes')
+            with songsDB.watch(pipeline) as changeStream:
+                for change in changeStream:
+                    sessionName = change.get('fullDocument').get('sessionName')
+                    songs = songsDB.find({'sessionName': sessionName}, {'_id': 0}).sort('orderNo', 1) # retrieves all the songs as Pymongo cursor and indicates not to return obj id
+                    queue.put((sessionName, list(songs)))
+                    resume_token = changeStream.resume_token
+        except pymongo.errors.PyMongoError:
+            if resume_token is None:
+                sys.exit(1)
+        finally:
+            client.close()
+
+
