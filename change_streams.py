@@ -4,7 +4,7 @@ from pymongo import MongoClient
 import pymongo
 from bson.json_util import dumps
 import sys
-import queue
+
 
 ENV_FILE = find_dotenv()
 
@@ -17,6 +17,7 @@ db = client['PanixDB']
 songsDB = db['Songs']
 
 def start_change_streams(queue):
+    prev = None
     resume_token = None
     pipeline = [{'$match': {'operationType': {'$in':['insert', 'update']}}}]
     while True:
@@ -26,7 +27,9 @@ def start_change_streams(queue):
                 for change in changeStream:
                     sessionName = change.get('fullDocument').get('sessionName')
                     songs = songsDB.find({'sessionName': sessionName}, {'_id': 0}).sort('orderNo', 1) # retrieves all the songs as Pymongo cursor and indicates not to return obj id
-                    queue.put((sessionName, list(songs)))
+                    if not prev or list(songs) != prev:
+                        queue.put((sessionName, list(songs)))
+                        prev = list(songs)
                     resume_token = changeStream.resume_token
         except pymongo.errors.PyMongoError:
             if resume_token is None:
