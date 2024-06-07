@@ -3,4 +3,4 @@ setup virtual environment
 
 pip install -r requirements.txt
 
-type flask run --debug in terminal
+type py ./app.py
