@@ -1,5 +1,4 @@
-*Setup*
-setup virtual environment
+*Setup* a virtual environment
 
 pip install -r requirements.txt
 
