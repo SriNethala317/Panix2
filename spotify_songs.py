@@ -47,7 +47,7 @@ def put_songs_in_list(json_result):
 
     
 #TODO: add error handling to the get, put, and post calls
-def get_spotify_queue(token):
+def get_spotify_queue(token, num_of_songs):
     url = "https://api.spotify.com/v1/me/player/queue"
     headers = get_auth_header(token)
     result = get(url, headers=headers)
@@ -59,7 +59,7 @@ def get_spotify_queue(token):
         print('Error: currently_playing is not in results')
         return error_msg
     #indicates that the user hasn't started playing their music in a long time so it appears to be null so we play and pause to recheck
-    #TODO: Fix the issue of it showing up as None untill the spotify playlist is acted 
+    #TODO: Fix the issue of it showing up as None until the spotify playlist is acted 
     elif json_result["currently_playing"] is None:
         print('currently_playing is null')
         print('json_results: ',  json_result)
@@ -79,8 +79,21 @@ def get_spotify_queue(token):
         #if the queue is still none then inform the users
         if json_result["currently_playing"] is None:
             return error_msg;
+    
+    # set the volume to 0
+    requests.put('https://api.spotify.com/v1/me/player/volume', headers=headers, data={'volume_percent':'0'})
+    #play the queue
+    header_with_context_type = get_auth_header(token)
+    header_with_context_type['Content-Type'] = 'application/json'
+    requests.put('https://api.spotify.com/v1/me/player/play', headers=header_with_context_type, data={"position_ms": '0'})
 
     songs = put_songs_in_list(json_result)
+    for i in range(num_of_songs):
+        requests.post('https://api.spotify.com/v1/me/player/next', headers=headers)
+    
+     #pause the queue
+    requests.put('https://api.spotify.com/v1/me/player/pause', headers=headers)
+    
     print('spotify songs: ' , songs, ' len is: ', len(songs))
     return songs
 

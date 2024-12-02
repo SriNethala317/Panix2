@@ -43,7 +43,7 @@ def home():
     session.clear()
     print('from /:', session.get('session_name'))
     print('from /:', session.get('username'))
-    return render_template("choose_host_or_user.html")
+    return render_template("/choose_host_or_user.html")
 
 @app.route("/create-session", methods=['GET', 'POST'])
 def generate_session():
@@ -129,6 +129,7 @@ def get_spotify_auth_code():
         return render_template('/account.html', data='Error occured')
 
 #TODO: refreshing tokens
+#TODO: Allow users to change and reorder songs before adding to DB and downloading songs
 @app.route('/add-spotify-songs-to-Queue', methods=['GET', 'POST'])
 def add_spotify_songs_to_queue():
     num_of_songs = int(request.get_json())
@@ -137,7 +138,7 @@ def add_spotify_songs_to_queue():
         print('spotify auth code: ' , session.get('spotify_auth_code'))
         session['access_token'] = get_spotify_token(session.get('spotify_auth_code'), redirect_url)
     print("access token: " + session['access_token'])
-    songs = get_spotify_queue(session['access_token'])
+    songs = get_spotify_queue(session['access_token'], num_of_songs)
     if num_of_songs is None:
         num_of_songs = 1
     if songs != 'Error: no songs selected':

@@ -44,10 +44,12 @@ def download_audio_from_yt(url, song, audio_type, filename):
     
 
 def download_song(song, audio_type='ogg'):
-    # try:
+    try:
         artist = song.get('artist_name')
         if artist:
             artist = '_by_' + artist
+        else:
+            artist = ''
         possible_file = song.get('song_name').replace(" ", "_") + artist.replace(" ", "_") +'.' + audio_type
         if os.path.exists(os.path.join(os.getcwd(), SONGSFOLDER, possible_file)): #if file already exists then return
             return
@@ -55,8 +57,8 @@ def download_song(song, audio_type='ogg'):
         print('url: ', url)
         download_audio_from_yt(url, song, audio_type, possible_file[:-4])
         print('Song name is: ' + song.get('song_name'))
-    # except Exception as e:
-    #     print(f"Failed to download {song.get('song_name')}: {e}")
+    except Exception as e:
+        print(f"Failed to download {song.get('song_name')}: {e}")
 
 def download_songs(songs, audio_type):
     pool = ThreadPool(10)
